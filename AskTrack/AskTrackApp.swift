@@ -8,8 +8,7 @@ struct AskTrackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Text("AskTrack")
-                .frame(minWidth: 600, minHeight: 400)
+            SessionView()
         }
         .commands {
             CommandGroup(after: .appInfo) {
