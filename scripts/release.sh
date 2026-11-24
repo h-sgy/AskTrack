@@ -27,6 +27,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 
 echo "==> archive ($VERSION, build $BUILD)"
 xcodebuild -quiet -project AskTrack.xcodeproj -scheme AskTrack -configuration Release \
+  -destination 'generic/platform=macOS' \
   -derivedDataPath build/DerivedData -archivePath "$OUT/AskTrack.xcarchive" \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" archive
 

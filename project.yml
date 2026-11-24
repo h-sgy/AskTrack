@@ -44,6 +44,7 @@ targets:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: AskTrack
+        LSApplicationCategoryType: public.app-category.productivity
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
