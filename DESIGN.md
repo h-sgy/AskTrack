@@ -55,6 +55,7 @@ flowchart LR
   LLM --> A["Apple オンデバイス"]
   LLM --> B["Anthropic API"]
   LLM --> C["OpenAI API"]
+  LLM --> D["Gemini API"]
   QC -- "検証済みの一致" --> ST[("Session 状態")]
   ST --> UI["SwiftUI<br/>メイン / ミニウィンドウ"]
   TS --> UI
@@ -67,7 +68,7 @@ flowchart LR
 | `AudioCapture` | AVAudioEngine の入力にタップを付け、`AsyncStream<AVAudioPCMBuffer>` で流す |
 | `Transcriber` | SpeechAnalyzer のラッパー。暫定結果と確定結果を `Segment` として流す |
 | `QuestionChecker` | デバウンスしてから LLM を呼び、結果を検証してチェックを付ける |
-| `LLMClient` | プロバイダを抽象化（Apple / Anthropic / OpenAI の 3 実装） |
+| `LLMClient` | プロバイダを抽象化（Apple / Anthropic / OpenAI / Gemini の 4 実装） |
 | `Store` | JSON ファイルの読み書き |
 | `Keychain` | API キーの保存と取得（数十行） |
 | Sparkle | 自動アップデート |
@@ -117,7 +118,8 @@ flowchart LR
 |---|---|---|
 | Anthropic API キー | ○ **推奨（既定）** | ユーザーが Claude Console で発行したキーを設定する。誤認識の多い書き起こしから意図を読み取るには大型モデルが要る |
 | Apple Foundation Models（オンデバイス） | ○ 採用（キー未設定時・機密用途） | キー不要・無料・オフラインで、外部に何も送らない。ただしコンテキストは約 4K トークンと小さく、誤認識の多い文の読み替えは苦手と見込む。精度より機密性を優先するときの選択肢 |
-| OpenAI API キー | ○ 採用（Phase 2） | ユーザーが OpenAI Platform で発行したキーを設定する |
+| OpenAI API キー | ○ 採用（MVP） | ユーザーが OpenAI Platform で発行したキーを設定する |
+| Gemini API キー | ○ 採用（MVP） | ユーザーが Google AI Studio で発行したキーを設定する。**無料枠のキーだと、送った内容が Google の製品改善に使われる**ので、機密のヒアリングでは有料枠のキーが前提（設定画面と README で案内する） |
 | Apple Private Cloud Compute（WWDC26） | ○ Phase 2 | API キー不要。初回ダウンロード 200 万未満のアプリなら開発者の負担は無料。ユーザーごとに 1 日の上限があり、**iCloud+ 加入者は上限が増える**。つまり実質「ユーザーの iCloud+ サブスクで動く」。macOS 27 以降を想定しており、詳細は要確認 |
 | ChatGPT プランでサインイン（Sign in with ChatGPT） | △ Phase 3 | OpenAI が 2026 年に公式化した仕組みで、ユーザーの ChatGPT Plus / Pro などの利用枠で Responses API を呼べる。ただし現在は選ばれたパートナー向けの限定トライアルで、client ID の申請が必要 |
 | Claude Pro / Max でログイン | ✗ **不可** | Anthropic が 2026 年 2 月に規約で明記した。サブスクの OAuth は Claude Code と Claude.ai 専用で、サードパーティ製品での利用や提供は禁止。4 月から強制されている |
@@ -136,12 +138,16 @@ struct PromptQuestion { let key: String; let text: String }  // key は "q1", "q
 struct AskedMatch: Decodable { let id: String; let segments: [String] }  // 5.3 のスキーマと同じ形
 ```
 
-- 実装は `AppleLLM`、`AnthropicLLM`、`OpenAILLM` で、1 ファイルずつ
-- Anthropic と OpenAI には Swift の公式 SDK がないので、**URLSession で REST API を直接呼ぶ**（各 100 行程度）
+- 実装は `AppleLLM`、`AnthropicLLM`、`OpenAILLM`、`GeminiLLM` で、1 ファイルずつ
+- 3 社とも Swift の公式 SDK がないので、**URLSession で REST API を直接呼ぶ**（各 60〜80 行程度）。HTTP 送信とエラーの分類は共通（`LLMHTTP`）
+- 各社の違い
+  - Anthropic: `output_config.format`（JSON Schema）と `effort: low`。Opus / Sonnet 5.5 は `fallbacks: "default"` も付ける（Haiku 5.5 は非対応）
+  - OpenAI: Responses API の `text.format`（`strict: true`）と `reasoning.effort: low`。**`store: false`**（既定では応答が OpenAI 側に保存されるため）
+  - Gemini: `responseJsonSchema` と `thinkingConfig.thinkingLevel: LOW`（Gemini 3 以降のみ。それより前のモデルに送るとエラー）。キーは URL ではなく `x-goog-api-key` ヘッダーで送る
 - WWDC26 で Foundation Models に `LanguageModel` プロトコルが入り、Anthropic と Google が対応する Swift パッケージを出している。成熟していれば、自前の HTTP 層をやめてそちらに寄せる（Phase 2 で評価）
 - **API キー**: Keychain に保存する（`kSecClassGenericPassword`、service は Bundle ID、account はプロバイダ名）。設定画面には SecureField と「接続テスト」ボタンを置く
-- **モデル一覧**: 各社の `GET /v1/models` から取得してピッカーに出す。ハードコードはしない
-  - Anthropic のデフォルトは `claude-opus-5-5`（精度優先）。コストを抑えたいユーザーは設定で `claude-sonnet-5-5` や `claude-haiku-5-5` を選べる（コストは 5.7）
+- **モデル一覧**: 確認済みのモデルだけを固定の一覧（`Provider.swift`）で出す。API の一覧をそのまま出すと、構造化出力や思考の量のパラメータに対応しないモデルも選べてしまい、400 になるため
+  - 既定は Anthropic が `claude-opus-5-5`（精度優先）、OpenAI が `gpt-6.2-sol`、Gemini が `gemini-3.8-flash`。T-20 の評価で見直す（コストは 5.7）
 - Apple オンデバイスは `SystemLanguageModel.default.availability` で利用可否を確認する。Apple Intelligence がオフ、または非対応の言語設定なら、設定画面へ案内する
 - 初回起動時に API キーが未設定なら、オンデバイスで動かしつつ「API キーを設定すると判定精度が上がります」と案内する
 
@@ -282,7 +288,7 @@ content-type: application/json
 - `fallbacks: "default"`: 安全分類器にリクエストを断られたとき、サーバー側で別のモデルに自動で切り替えて再実行する
 - `stop_reason == "refusal"` が返ったら、その回の判定は捨てて次のきっかけを待つ
 - 応答の `text` ブロックを JSON として解析し、5.5 の検証にかける
-- エラー処理: 429 / 5xx / 通信エラーは次のきっかけまで待つ（リトライで連打しない。`judgedUntil` を進めないので発言は取りこぼさない。5.2）。401 なら「API キーを確認してください」と表示して判定を止める
+- エラー処理: 429 / 5xx / 通信エラーは次のきっかけまで待つ（リトライで連打しない。`judgedUntil` を進めないので発言は取りこぼさない。5.2）。401 / 403 なら「API キーを確認してください」、400 / 404 など設定の問題ならその内容を表示して、判定を止める（続けても同じ結果になり、範囲を飛ばし続けて黙って何も判定しない状態になるため）
 
 OpenAI の場合は `POST /v1/responses` に `text.format: { type: "json_schema", strict: true, ... }` を付けて送る。
 
@@ -296,6 +302,12 @@ OpenAI の場合は `POST /v1/responses` に `text.format: { type: "json_schema"
 | Claude Haiku 5.5 | 約 $0.05〜0.1 |
 | Claude Sonnet 5.5 | 約 $1〜2 |
 | Claude Opus 5.5（デフォルト） | 約 $2〜4 |
+| GPT-6 luna | 約 $0.05〜0.1 |
+| GPT-6.2 sol | 約 $1〜2 |
+| GPT-6.2 astra | 約 $4〜8 |
+| Gemini 3.5 Flash-Lite | 約 $0.2〜0.4 |
+| Gemini 3.8 Flash（2027-01 以降の単価） | 約 $0.8〜1.5 |
+| Gemini 4 Argon（2026-12 以降の単価） | 約 $2〜4 |
 
 設定画面で、モデルの横にこの目安を表示する。
 
@@ -408,8 +420,10 @@ AskTrack/
 │   ├── LLM/
 │   │   ├── LLMClient.swift      # protocol と共通プロンプト・スキーマ
 │   │   ├── AppleLLM.swift
+│   │   ├── Provider.swift       # プロバイダと、選べるモデルの一覧
 │   │   ├── AnthropicLLM.swift
-│   │   └── OpenAILLM.swift
+│   │   ├── OpenAILLM.swift
+│   │   └── GeminiLLM.swift
 │   ├── Models.swift             # 6 章の型
 │   ├── Store.swift              # JSON 永続化
 │   ├── Keychain.swift
@@ -431,9 +445,9 @@ AskTrack/
 | フェーズ | 内容 |
 |---|---|
 | **Phase 0: 土台** | Xcode プロジェクト作成（リポジトリと設計書は作成済み）、Sparkle と release.sh を組み込み、空の v0.1 を公証付きで配って**自動アップデートが動くことを先に確認する** |
-| **Phase 1: MVP** | マイクから SpeechTranscriber（ja-JP）で文字起こし、質問リストの作成と編集、Apple オンデバイスと Anthropic の判定、手動での修正、ミニウィンドウ、保存と Markdown 書き出し |
-| **Phase 2** | OpenAI 対応、Apple PCC（macOS 27）、Foundation Models の `LanguageModel` プロトコルの評価、GitHub Actions 化 |
-| **Phase 3** | システム音声（Core Audio Tap、オンライン会議用）、Sign in with ChatGPT（申請が通った場合）、Gemini、「回答をもらったか」の判定、終了後の要約 |
+| **Phase 1: MVP** | マイクから SpeechTranscriber（ja-JP）で文字起こし、質問リストの作成と編集、Apple オンデバイスと Anthropic / OpenAI / Gemini の判定、手動での修正、ミニウィンドウ、保存と Markdown 書き出し |
+| **Phase 2** | Apple PCC（macOS 27）、Foundation Models の `LanguageModel` プロトコルの評価、GitHub Actions 化 |
+| **Phase 3** | システム音声（Core Audio Tap、オンライン会議用）、Sign in with ChatGPT（申請が通った場合）、「回答をもらったか」の判定、終了後の要約 |
 
 ---
 
