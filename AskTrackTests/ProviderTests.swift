@@ -129,17 +129,25 @@ struct LiveLLMTests {
         try await Self.check(.gemini, key: Self.env["GEMINI_API_KEY"]!)
     }
 
-    /// 既定モデルで、聞いた質問だけが根拠付きで返ること
+    // Apple Intelligence が有効な Mac なら常に動く（無料・オフライン）
+    @Test(.enabled(if: AppleLLM.unavailableReason == nil)) func apple() async throws {
+        try await Self.check(AppleLLM(), label: "Apple")
+    }
+
     static func check(_ provider: Provider, key: String) async throws {
+        try await check(provider.client(apiKey: key, model: provider.models[0].id), label: provider.displayName)
+    }
+
+    /// 聞いた質問だけが根拠付きで返ること
+    static func check(_ client: any LLMClient, label: String) async throws {
         let budget = Question(text: "今年度の予算はどのくらいですか")
         let owner = Question(text: "決裁者はどなたですか")
         let segments = [Segment(start: 3, text: "本日はよろしくお願いします"),
                         Segment(start: 10, text: "では今年度の予算感を教えてもらえますか"),
                         Segment(start: 15, text: "五百万円ほどです")]
         let request = JudgeRequest(unchecked: [budget, owner], segments: segments, range: 0..<3)
-        let client = provider.client(apiKey: key, model: provider.models[0].id)
         let matches = try await client.findAsked(questions: request.questions, transcript: request.transcript)
         let checks = request.accept(matches, segments: segments, blocked: [], at: .now)
-        #expect(checks.map(\.questionID) == [budget.id], "\(provider): \(matches)")
+        #expect(checks.map(\.questionID) == [budget.id], "\(label): \(matches)")
     }
 }

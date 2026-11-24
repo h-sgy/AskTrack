@@ -60,6 +60,18 @@ enum LLMError: Error, Equatable {
     }
 }
 
+extension LLMError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .transient(let detail): "一時的なエラーです。次の判定で再試行します（\(detail)）"
+        case .refusal: "LLM に判定を断られました。"
+        case .invalidResponse(let detail): "LLM の応答を読めませんでした（\(detail)）"
+        case .unauthorized: "API キーが無効です。設定を確認してください。"
+        case .badRequest(let detail): "リクエストが拒否されました。設定（モデルなど）を確認してください（\(detail)）"
+        }
+    }
+}
+
 enum LLMHTTP {
     static func send(_ request: URLRequest) async throws -> Data {
         let data: Data

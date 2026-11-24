@@ -2,7 +2,7 @@ import Foundation
 
 /// 判定に使える外部 LLM のプロバイダ
 enum Provider: String, CaseIterable, Codable, Identifiable, Sendable {
-    case anthropic, openai, gemini
+    case anthropic, openai, gemini, apple
 
     var id: String { rawValue }
 
@@ -11,11 +11,18 @@ enum Provider: String, CaseIterable, Codable, Identifiable, Sendable {
         case .anthropic: "Claude（Anthropic）"
         case .openai: "OpenAI"
         case .gemini: "Gemini（Google）"
+        case .apple: "Apple オンデバイス（無料・外部に送らない）"
         }
     }
 
     /// Keychain の account 名
     var keychainAccount: String { rawValue }
+
+    var needsAPIKey: Bool { self != .apple }
+
+    /// 前回の判定範囲と重ねる幅と、1 回に送る上限（設計書 5.2）。オンデバイスはコンテキストが小さい
+    var overlap: TimeInterval { self == .apple ? 60 : 180 }
+    var limit: TimeInterval { self == .apple ? 180 : 600 }
 
     /// 選べるモデル。API の一覧をそのまま出すと、パラメータ（構造化出力・思考の量）に
     /// 対応していないモデルも選べてしまい 400 になるので、確認済みのものだけを並べる。
@@ -39,6 +46,7 @@ enum Provider: String, CaseIterable, Codable, Identifiable, Sendable {
             ModelOption(id: "gemini-4-hydrogen", name: "Gemini 4 Hydrogen", input: 1.50, output: 7.50),
             ModelOption(id: "gemini-3.5-flash-lite", name: "Gemini 3.5 Flash-Lite", input: 0.30, output: 2.50),
         ]
+        case .apple: []
         }
     }
 
@@ -47,6 +55,7 @@ enum Provider: String, CaseIterable, Codable, Identifiable, Sendable {
         case .anthropic: AnthropicLLM(apiKey: apiKey, model: model)
         case .openai: OpenAILLM(apiKey: apiKey, model: model)
         case .gemini: GeminiLLM(apiKey: apiKey, model: model)
+        case .apple: AppleLLM()
         }
     }
 }

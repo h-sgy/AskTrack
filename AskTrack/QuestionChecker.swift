@@ -104,12 +104,13 @@ final class QuestionChecker {
     /// - Parameters:
     ///   - session: 判定時点のセッションを返す
     ///   - apply: 検証を通ったチェックを書き込む
-    init(client: any LLMClient, overlap: TimeInterval, limit: TimeInterval,
+    init(client: any LLMClient, overlap: TimeInterval, limit: TimeInterval, minInterval: TimeInterval = 15,
          session: @escaping () -> Session, apply: @escaping ([Check]) -> Void) {
         self.client = client
         self.session = session
         self.apply = apply
         progress = JudgeProgress(overlap: overlap, limit: limit)
+        schedule.minInterval = minInterval
     }
 
     func segmentArrived() {

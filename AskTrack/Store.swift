@@ -5,7 +5,9 @@ import os
 struct Store {
     let root: URL
 
-    static let shared = Store(root: .applicationSupportDirectory.appending(path: "AskTrack"))
+    /// 開発用: `-storeRoot <フォルダ>` を付けて起動すると、そのフォルダを使う（実データに触れずに画面を確認するため）
+    static let shared = Store(root: UserDefaults.standard.string(forKey: "storeRoot").map { URL(filePath: $0) }
+        ?? .applicationSupportDirectory.appending(path: "AskTrack"))
 
     private var listsDir: URL { root.appending(path: "lists") }
     private var sessionsDir: URL { root.appending(path: "sessions") }
@@ -25,6 +27,12 @@ struct Store {
     /// 録音中は確定セグメントやチェックが変わるたびに呼ぶ。書き込みはアトミック（途中で落ちても壊れない）
     func save(_ session: Session) throws {
         try write(session, to: sessionsDir.appending(path: Self.fileName(for: session)))
+    }
+
+    func delete(_ session: Session) throws {
+        let url = sessionsDir.appending(path: Self.fileName(for: session))
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
     }
 
     /// 新しい順
