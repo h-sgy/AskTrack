@@ -1,0 +1,64 @@
+# Xcode プロジェクトの定義。変更したら `xcodegen generate` を実行する。
+# ソースは同期フォルダなので、Swift ファイルの追加・削除だけなら再生成は不要。
+name: AskTrack
+options:
+  bundleIdPrefix: io.github.h-sgy
+  deploymentTarget:
+    macOS: "26.0"
+
+settings:
+  base:
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    # 固定の証明書で署名する（ad-hoc だとビルドごとに識別子が変わり、
+    # マイク許可や Keychain のアクセス許可が毎回やり直しになるため）
+    DEVELOPMENT_TEAM: D7GVSV9NSQ
+    CODE_SIGN_STYLE: Manual
+  configs:
+    Debug:
+      CODE_SIGN_IDENTITY: "Apple Development"
+    Release:
+      CODE_SIGN_IDENTITY: "Developer ID Application"
+
+targets:
+  AskTrack:
+    type: application
+    platform: macOS
+    sources:
+      - path: AskTrack
+        type: syncedFolder
+    entitlements:
+      path: Support/AskTrack.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: AskTrack
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSMicrophoneUsageDescription: 会話を文字起こしし、質問リストのどれを聞いたかを判定するためにマイクを使います。音声は保存しません。
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.h-sgy.AskTrack
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+    scheme:
+      testTargets: [AskTrackTests]
+
+  AskTrackTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: AskTrackTests
+        type: syncedFolder
+    dependencies:
+      - target: AskTrack
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/AskTrack.app/Contents/MacOS/AskTrack
+        BUNDLE_LOADER: $(TEST_HOST)

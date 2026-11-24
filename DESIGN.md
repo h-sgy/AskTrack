@@ -397,7 +397,9 @@ AskTrack/
 ├── DESIGN.md
 ├── LICENSE                      # MIT
 ├── README.md                    # 使い方と、外部 LLM に送るデータの説明
-├── AskTrack.xcodeproj
+├── project.yml                  # XcodeGen の定義（ソースは同期フォルダなので追加時の再生成は不要）
+├── AskTrack.xcodeproj           # project.yml から生成。clone 直後に開けるよう commit する
+├── Support/                     # Info.plist と entitlements（project.yml から生成）
 ├── AskTrack/
 │   ├── AskTrackApp.swift        # App、Sparkle、メニュー
 │   ├── AudioCapture.swift
