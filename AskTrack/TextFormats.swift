@@ -3,16 +3,22 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension QuestionList {
-    /// 1 行 1 質問。箇条書きの記号（- * ・ 1. ① - [ ] など）を取り、空行と見出し（#）は飛ばす
+    /// 1 行 1 質問。箇条書きの記号（- * ・ 1. ① - [ ] など）を取り、空行と見出し（# や太字だけの行）は飛ばす。
+    /// 要約メモによくある Markdown のリンクは文字だけ残し、末尾のタイムスタンプ（[03:07]）は消す
     static func parseQuestions(_ text: String) -> [String] {
         text.split(whereSeparator: \.isNewline).compactMap { line in
             var item = line.trimmingCharacters(in: .whitespaces)
             guard !item.hasPrefix("#") else { return nil }
-            if let marker = item.range(of: #"^(?:[-*•・]\s*(?:\[[ xX]\]\s*)?|\d+[.)．）]\s*|[①-⑳]\s*)"#,
+            // * は後ろに空白があるときだけ箇条書きとみなす（**太字** を崩さない）
+            if let marker = item.range(of: #"^(?:(?:[-•・]\s*|\*\s+)(?:\[[ xX]\]\s*)?|\d+[.)．）]\s*|[①-⑳]\s*)"#,
                                        options: .regularExpression) {
                 item.removeSubrange(marker)
             }
             item = item.trimmingCharacters(in: .whitespaces)
+            if item.range(of: #"^\*\*[^*]+\*\*[:：]?$"#, options: .regularExpression) != nil { return nil }
+            item = item.replacingOccurrences(of: #"\[([^\]]*)\]\([^)]*\)"#, with: "$1", options: .regularExpression)
+            item = item.replacingOccurrences(of: #"\s*\[\d{1,2}:\d{2}(?::\d{2})?\]$"#, with: "", options: .regularExpression)
+            item = item.replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespaces)
             return item.isEmpty ? nil : item
         }
     }

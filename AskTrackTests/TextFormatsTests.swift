@@ -21,6 +21,19 @@ import Testing
     ])
 }
 
+@Test func skipsBoldHeadingsAndStripsTimestampLinks() {
+    // 動画の要約メモをそのまま貼ったときの形
+    let text = """
+    * **自己紹介について**
+    * 簡単な自己紹介をしてもらえるか [[03:07](https://example.com/watch?v=x&t=187)]
+
+    **料金について**
+    * いくらくらいかかるのか [12:34]
+    * 詳細は[公式サイト](https://example.com)にあるのか
+    """
+    #expect(QuestionList.parseQuestions(text) == ["簡単な自己紹介をしてもらえるか", "いくらくらいかかるのか", "詳細は公式サイトにあるのか"])
+}
+
 @Test func doesNotStripHyphenatedWords() {
     #expect(QuestionList.parseQuestions("B-to-B の比率は？") == ["B-to-B の比率は？"])
 }
