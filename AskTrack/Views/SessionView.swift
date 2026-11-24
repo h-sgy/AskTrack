@@ -65,12 +65,13 @@ struct SessionView: View {
     private var recordingControls: some View {
         switch live?.state {
         case .recording?:
+            Button { live?.pause() } label: { Label("一時停止", systemImage: "pause.fill") }
             Button { live?.stop() } label: { Label("停止", systemImage: "stop.fill").fontWeight(.semibold) }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.askRed)
             LevelMeter(level: live?.level ?? 0)
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text("● \(clockText(context.date.timeIntervalSince(session.startedAt)))")
+                Text("● \(clockText(live?.recordedDuration(at: context.date) ?? 0))")
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.askRed)
                     .monospacedDigit()
@@ -79,6 +80,16 @@ struct SessionView: View {
                 Text("Mac を自分と相手の間に置くと、相手の声も拾いやすくなります。")
                     .font(.callout).foregroundStyle(.secondary)
             }
+        case .paused?:
+            Button { live?.resume() } label: { Label("再開", systemImage: "mic.fill").fontWeight(.semibold) }
+                .buttonStyle(.borderedProminent)
+            Button { live?.stop() } label: { Label("停止", systemImage: "stop.fill") }
+                .tint(Color.askRed)
+            Text("一時停止中 \(clockText(live?.recordedDuration(at: .now) ?? 0))")
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            Text("マイクは止まっています。").font(.callout).foregroundStyle(.secondary)
         case .idle?, .preparing?:
             ProgressView().controlSize(.small)
             Text(live?.message ?? "準備中…").foregroundStyle(.secondary)
@@ -87,7 +98,7 @@ struct SessionView: View {
             Text("残りを判定中…").foregroundStyle(.secondary)
         case .finished?, nil:
             if let endedAt = session.endedAt {
-                Label("録音を終了しました（\(clockText(endedAt.timeIntervalSince(session.startedAt)))）", systemImage: "checkmark.circle")
+                Label("録音を終了しました（\(clockText(session.recordedDuration(until: endedAt)))）", systemImage: "checkmark.circle")
                     .padding(.horizontal, 12)
                     .frame(minHeight: 32)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))

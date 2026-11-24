@@ -36,6 +36,12 @@ struct Session: Codable, Identifiable, Equatable, Sendable {
     var questions: [Question]   // 開始時点のスナップショット（後でリストを編集しても壊れない）
     var segments: [Segment] = []
     var checks: [Check] = []
+    var pausedSeconds: TimeInterval?   // 一時停止していた合計（古いファイルにはない）
+
+    /// 一時停止を除いた録音時間。セグメントの時刻と同じ数え方
+    func recordedDuration(until end: Date) -> TimeInterval {
+        max(0, end.timeIntervalSince(startedAt) - (pausedSeconds ?? 0))
+    }
 
     /// 自動判定に回さない質問（チェック済み、または手動で外したもの）
     var blockedQuestionIDs: Set<UUID> { Set(checks.map(\.questionID)) }

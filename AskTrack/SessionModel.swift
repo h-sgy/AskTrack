@@ -4,7 +4,7 @@ import Observation
 /// 録音 1 回ぶん。マイク → 文字起こし → 判定 → 逐次保存をつなぐ
 @Observable
 final class SessionModel {
-    enum State { case idle, preparing, recording, finishing, finished }
+    enum State { case idle, preparing, recording, paused, finishing, finished }
 
     private(set) var state = State.idle
     private(set) var session: Session
@@ -18,7 +18,25 @@ final class SessionModel {
 
     var isActive: Bool { state != .idle && state != .finished }
 
+    /// サイドバーなどに出す状態
+    var statusLabel: String? {
+        switch state {
+        case .preparing: "準備中"
+        case .recording: "録音中"
+        case .paused: "一時停止中"
+        case .finishing: "判定中"
+        case .idle, .finished: nil
+        }
+    }
+
+    /// 一時停止を除いた録音時間（一時停止中は止まる）
+    func recordedDuration(at now: Date) -> TimeInterval {
+        session.recordedDuration(until: pausedAt ?? now)
+    }
+
     private var capture: AudioCapture?
+    private var transcriber: Transcriber?
+    private var pausedAt: Date?
     private var checker: QuestionChecker?
     private let settings: JudgeSettings
     private let store: Store
@@ -39,8 +57,39 @@ final class SessionModel {
 
     /// マイクを止める。認識途中の音声を確定させ、未判定の残りを判定してから終わる
     func stop() {
+        addPausedTime()
         capture?.stop()
         capture = nil
+    }
+
+    /// マイクを一時的に止める。話しかけの途中だった音声は確定させて判定に回す
+    func pause() {
+        guard state == .recording else { return }
+        capture?.pause()
+        pausedAt = .now
+        state = .paused
+        level = 0
+        Task { await transcriber?.finalizeNow() }
+    }
+
+    func resume() {
+        guard state == .paused else { return }
+        do {
+            try capture?.resume()
+        } catch {
+            message = "録音を再開できませんでした: \(error.localizedDescription)"
+            return
+        }
+        addPausedTime()
+        message = nil
+        state = .recording
+        save()
+    }
+
+    private func addPausedTime() {
+        guard let pausedAt else { return }
+        session.pausedSeconds = (session.pausedSeconds ?? 0) + Date.now.timeIntervalSince(pausedAt)
+        self.pausedAt = nil
     }
 
     /// 手動でチェックを付ける / 外す。外した質問は、このセッションでは自動判定の対象外になる
@@ -74,6 +123,10 @@ final class SessionModel {
                 Task { @MainActor in self.level = level }
             }
             self.capture = capture
+            self.transcriber = transcriber
+            // 録音時間とセグメントの時刻をそろえるため、実際に録音が始まった時刻から数える
+            // （初めて保存する前なので、保存ファイル名は変わらない）
+            session.startedAt = .now
             state = .recording
             message = nil
             save()
@@ -99,8 +152,10 @@ final class SessionModel {
     }
 
     private func end() {
+        addPausedTime()
         capture?.stop()
         capture = nil
+        transcriber = nil
         checker = nil
         level = 0
         session.endedAt = .now

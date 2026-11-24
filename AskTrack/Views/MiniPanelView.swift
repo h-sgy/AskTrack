@@ -28,9 +28,12 @@ struct MiniPanelView: View {
             HStack {
                 Text(session.listTitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
-                if live.isActive {
+                if live.state == .paused {
+                    Text("一時停止中 \(clockText(live.recordedDuration(at: .now)))")
+                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                } else if live.isActive {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text("● 録音中 \(clockText(context.date.timeIntervalSince(session.startedAt)))")
+                        Text("● 録音中 \(clockText(live.recordedDuration(at: context.date)))")
                             .font(.caption.weight(.semibold)).foregroundStyle(Color.askRed).monospacedDigit()
                     }
                 } else {

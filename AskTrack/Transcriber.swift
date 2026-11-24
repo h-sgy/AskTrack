@@ -44,6 +44,11 @@ final class Transcriber {
         try await analyzer.setContext(context)
     }
 
+    /// ここまでの音声を確定させる（一時停止したとき、話しかけの途中を判定に回すため）
+    func finalizeNow() async {
+        try? await analyzer.finalize(through: nil)
+    }
+
     /// 入力を流し、暫定・確定の結果を返す。入力が終わると、残りを確定させてから終わる
     func transcribe<Input: AsyncSequence & Sendable>(_ input: Input) -> AsyncThrowingStream<TranscriptEvent, Error>
     where Input.Element == AnalyzerInput {

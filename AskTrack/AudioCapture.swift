@@ -29,6 +29,15 @@ final class AudioCapture {
         return stream
     }
 
+    /// マイクを止める（ハードウェアも止まる）。流れは閉じないので、resume() で続きから流せる
+    func pause() {
+        engine.pause()
+    }
+
+    func resume() throws {
+        try engine.start()
+    }
+
     func stop() {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()

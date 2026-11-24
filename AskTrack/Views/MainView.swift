@@ -19,7 +19,7 @@ struct MainView: View {
                 }
                 Section("過去のセッション") {
                     ForEach(app.sessions) { session in
-                        SessionRow(session: session, recording: app.isRecording && app.live?.session.id == session.id)
+                        SessionRow(session: session, status: app.live?.session.id == session.id ? app.live?.statusLabel : nil)
                             .tag(AppModel.Selection.session(session.id))
                             .contextMenu {
                                 Button("削除", role: .destructive) { app.delete(session) }
@@ -80,15 +80,15 @@ struct MainView: View {
 
 private struct SessionRow: View {
     let session: Session
-    let recording: Bool
+    let status: String?   // 録音中・一時停止中など（このセッションを録音しているときだけ）
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(session.listTitle.isEmpty ? "無題" : session.listTitle)
             HStack(spacing: 4) {
                 Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
-                if recording {
-                    Text("録音中").foregroundStyle(.red)
+                if let status {
+                    Text(status).foregroundStyle(status == "録音中" ? Color.askRed : .secondary)
                 } else if session.endedAt == nil {
                     Text("中断").foregroundStyle(.orange)
                 }
