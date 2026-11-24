@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "Bash(git commit *)",
+            "model": "claude-sonnet-5-5",
+            "timeout": 300,
+            "statusMessage": "public にしてはいけないものがないかレビュー中…",
+            "prompt": "あなたは public な GitHub リポジトリへの commit 前レビュー担当です。これから実行される git commit に、公開してはいけない情報が含まれていないかを調べてください。ファイルは一切変更しないこと。\n\n入力: $ARGUMENTS\n\n手順:\n1. 入力の cwd（コマンドに cd があればその移動先）のリポジトリで `git diff --cached` を確認する。コマンド内に `git add` や `-a` / `--all` があれば、それで加わる変更も `git diff HEAD -- <ファイル>` や未追跡ファイルの中身で確認する。コミットメッセージも確認する。\n2. 次のものが含まれていたら不承認にする:\n- 秘密鍵・証明書（BEGIN ... PRIVATE KEY、.p8 / .p12 / .pem / .cer / .mobileprovision、Sparkle の EdDSA 秘密鍵）\n- API キー・トークン・パスワード（sk-ant- / sk- / ghp_ / gho_ / AKIA / xox で始まる文字列、.env の中身など）\n- 個人情報（個人のメールアドレス、電話番号、住所、本名）\n- 依頼元・顧客・取引先を特定できる名前や案件名\n- 実際のインタビューや会議の書き起こし・録音（テストデータは架空のものに限る）\n- ユーザー名が分かるローカルの絶対パス（/Users/<ユーザー名>/ など）\n3. 次は公開してよい: GitHub ユーザー名 h-sgy、リポジトリの URL、LICENSE の著作権表記、GitHub の noreply アドレス、noreply@anthropic.com、公開ドキュメントの URL、明らかなダミー値（<ユーザーのキー> など）。\n\n不承認のときは、ファイル名・該当箇所・理由を具体的に挙げること。"
+          }
+        ]
+      }
+    ]
+  }
+}

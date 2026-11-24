@@ -13,3 +13,6 @@ releases/
 *.mobileprovision
 *.provisionprofile
 .env
+
+# Claude Code personal overrides
+.claude/settings.local.json
