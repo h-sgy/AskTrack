@@ -13,8 +13,8 @@ struct SettingsView: View {
                     ForEach(Provider.allCases) { Text($0.displayName).tag($0) }
                 }
                 if settings.provider == .apple {
-                    Text(AppleLLM.unavailableReason ?? "使えます。外部には何も送りません。精度は外部の LLM より低めです。")
-                        .foregroundStyle(.secondary)
+                    Text(AppleLLM.unavailableReason ?? "無料で、外部には何も送りません。ただし精度が低く、誤ってチェックが付くことがあります（25 問のリストで、実際に聞いた質問を拾えず、先頭の質問に誤ってチェックが付いた）。試験用です。")
+                        .foregroundStyle(.orange)
                 } else {
                     CloudProviderSettings(provider: settings.provider, settings: settings)
                         .id(settings.provider)

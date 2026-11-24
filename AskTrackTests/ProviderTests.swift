@@ -129,8 +129,8 @@ struct LiveLLMTests {
         try await Self.check(.gemini, key: Self.env["GEMINI_API_KEY"]!)
     }
 
-    // Apple Intelligence が有効な Mac なら常に動く（無料・オフライン）
-    @Test(.enabled(if: AppleLLM.unavailableReason == nil)) func apple() async throws {
+    // 無料・オフラインだが結果が揺れる（同じ入力で通ったり落ちたりする）ので、TEST_RUNNER_APPLE_LLM_LIVE=1 のときだけ動かす
+    @Test(.enabled(if: env["APPLE_LLM_LIVE"] != nil && AppleLLM.unavailableReason == nil)) func apple() async throws {
         try await Self.check(AppleLLM(), label: "Apple")
     }
 

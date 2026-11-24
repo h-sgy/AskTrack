@@ -55,15 +55,15 @@ final class SessionModel {
             message = "マイクの使用が許可されていません。システム設定 > プライバシーとセキュリティ > マイク で AskTrack を許可してください。"
             return end()
         }
-        if let judge = settings.resolve() {
+        let resolved = settings.resolve()
+        judgeNotice = resolved.notice
+        if let judge = resolved.judge {
             judgeLabel = judge.label
             judgeNotice = judge.notice
             // 判定が終わるまで互いを参照する。end() で checker を外して循環を切る
             checker = QuestionChecker(client: judge.client, overlap: judge.provider.overlap, limit: judge.provider.limit,
                                       minInterval: settings.minInterval,
                                       session: { self.session }, apply: { self.apply($0) })
-        } else {
-            judgeNotice = "判定に使える LLM がありません。設定で API キーを入れるか、Apple Intelligence を有効にしてください。文字起こしだけ行います。"
         }
         do {
             message = "音声認識を準備中…"

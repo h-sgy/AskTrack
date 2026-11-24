@@ -39,14 +39,18 @@ final class JudgeSettings {
         let notice: String?
     }
 
-    /// 判定に使う LLM。選んだプロバイダのキーがなければ、Apple オンデバイスに切り替える。どれも使えなければ nil
-    func resolve() -> Judge? {
-        if provider.needsAPIKey, let key = apiKey(for: provider), let model = model(for: provider) {
-            return Judge(client: provider.client(apiKey: key, model: model.id), provider: provider, label: model.name, notice: nil)
+    /// 判定に使う LLM。使えなければ、理由を添えて nil。
+    /// キーが未設定でも Apple オンデバイスには黙って切り替えない（実測で、25 問のリストだと先頭の質問を
+    /// 誤ってチェックし、実際に聞いた質問を拾えなかった。誤チェックは聞き漏れにつながるため）
+    func resolve() -> (judge: Judge?, notice: String?) {
+        if provider == .apple {
+            if let reason = AppleLLM.unavailableReason { return (nil, reason + "文字起こしだけ行います。") }
+            return (Judge(client: AppleLLM(), provider: .apple, label: "Apple オンデバイス（実験的）",
+                          notice: "Apple オンデバイスは精度が低く、誤ってチェックが付くことがあります。"), nil)
         }
-        guard AppleLLM.unavailableReason == nil else { return nil }
-        let notice = provider == .apple ? nil
-            : "\(provider.displayName) の API キーが未設定なので、Apple オンデバイスで判定します。キーを設定すると判定精度が上がります。"
-        return Judge(client: AppleLLM(), provider: .apple, label: "Apple オンデバイス", notice: notice)
+        guard let key = apiKey(for: provider), let model = model(for: provider) else {
+            return (nil, "\(provider.displayName) の API キーが未設定なので、判定はせず文字起こしだけ行います。設定（⌘,）でキーを保存してください。")
+        }
+        return (Judge(client: provider.client(apiKey: key, model: model.id), provider: provider, label: model.name, notice: nil), nil)
     }
 }

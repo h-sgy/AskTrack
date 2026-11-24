@@ -11,7 +11,7 @@ enum Provider: String, CaseIterable, Codable, Identifiable, Sendable {
         case .anthropic: "Claude（Anthropic）"
         case .openai: "OpenAI"
         case .gemini: "Gemini（Google）"
-        case .apple: "Apple オンデバイス（無料・外部に送らない）"
+        case .apple: "Apple オンデバイス（実験的・精度が低い）"
         }
     }
 
