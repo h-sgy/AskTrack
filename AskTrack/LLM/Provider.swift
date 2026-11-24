@@ -15,6 +15,17 @@ enum Provider: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
 
+    /// 設定画面の選択肢に出す名前と補足
+    var tileName: String { self == .apple ? "Apple オンデバイス" : displayName }
+    var note: String {
+        switch self {
+        case .anthropic: "精度重視"
+        case .openai: "GPT-6 系"
+        case .gemini: "低コスト"
+        case .apple: "実験的・無料"
+        }
+    }
+
     /// Keychain の account 名
     var keychainAccount: String { rawValue }
 

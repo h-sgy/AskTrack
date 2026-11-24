@@ -25,6 +25,7 @@ struct Check: Codable, Equatable, Sendable {
     var at: Date
     var evidence: String?   // 自動チェックの根拠セグメントの本文
     var manual: Bool
+    var evidenceIndices: [Int]? = nil   // 根拠セグメントの添字（時刻の表示と、文字起こしの強調に使う）
 }
 
 struct Session: Codable, Identifiable, Equatable, Sendable {

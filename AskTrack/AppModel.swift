@@ -7,6 +7,19 @@ final class AppModel {
     enum Selection: Hashable {
         case list(UUID)
         case session(UUID)
+        case settings
+    }
+
+    private var beforeSettings: Selection?
+
+    /// 同じウィンドウの中で設定画面を開く（⌘, もここに来る）
+    func showSettings() {
+        if selection != .settings { beforeSettings = selection }
+        selection = .settings
+    }
+
+    func closeSettings() {
+        selection = beforeSettings ?? lists.first.map { .list($0.id) }
     }
 
     let settings = JudgeSettings()

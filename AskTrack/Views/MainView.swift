@@ -1,7 +1,9 @@
+import Sparkle
 import SwiftUI
 
 struct MainView: View {
     @Bindable var app: AppModel
+    let updater: SPUUpdater
 
     var body: some View {
         NavigationSplitView {
@@ -39,10 +41,34 @@ struct MainView: View {
                 if let session = app.session(id: id) {
                     SessionView(session: session, live: app.live?.session.id == id ? app.live : nil)
                 }
+            case .settings?:
+                SettingsView(settings: app.settings, updater: updater, onBack: app.closeSettings)
             case nil:
                 ContentUnavailableView("質問リストを選ぶか、＋で追加してください", systemImage: "list.bullet.clipboard")
             }
         }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                let summary = app.settings.summary
+                Button { app.showSettings() } label: {
+                    HStack(spacing: 6) {
+                        Circle().fill(summary.ready ? Color.askGreen : Color.orange).frame(width: 8, height: 8)
+                        Text("判定: \(summary.label)")
+                    }
+                    .font(.callout.weight(.medium))
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 28)
+                    .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("判定に使う LLM を設定する")
+                Button { app.showSettings() } label: { Label("設定", systemImage: "gearshape") }
+                    .labelStyle(.titleAndIcon)
+                    .help("設定（⌘,）")
+            }
+        }
+        .background(WindowConfigurator())
         .frame(minWidth: 800, minHeight: 500)
         .alert("エラー", isPresented: Binding(get: { app.errorMessage != nil }, set: { if !$0 { app.errorMessage = nil } })) {
             Button("OK") {}

@@ -174,8 +174,10 @@ struct JudgeRequest {
             let indices = match.segments.compactMap(Self.segmentIndex)
             guard !indices.isEmpty, indices.count == match.segments.count,
                   indices.allSatisfy(range.contains) else { continue }
-            let evidence = indices.sorted().map { segments[$0].text }.joined(separator: " ")
-            result.append(Check(questionID: questionID, checked: true, at: now, evidence: evidence, manual: false))
+            let sorted = Array(Set(indices)).sorted()
+            let evidence = sorted.map { segments[$0].text }.joined(separator: " ")
+            result.append(Check(questionID: questionID, checked: true, at: now, evidence: evidence, manual: false,
+                                evidenceIndices: sorted))
         }
         return result
     }

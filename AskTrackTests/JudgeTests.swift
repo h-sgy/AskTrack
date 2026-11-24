@@ -22,6 +22,7 @@ struct JudgeRequestTests {
         #expect(checks.count == 1)
         #expect(checks.first?.questionID == budget.id)
         #expect(checks.first?.evidence == "予算はどのくらいですか 五百万円くらいです")
+        #expect(checks.first?.evidenceIndices == [1, 2])
         #expect(checks.first?.manual == false)
     }
 

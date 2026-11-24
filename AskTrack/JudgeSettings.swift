@@ -32,6 +32,35 @@ final class JudgeSettings {
         Keychain.load(account: provider.keychainAccount).flatMap { $0.isEmpty ? nil : $0 }
     }
 
+    /// Keychain の変化は観測できないので、保存・削除のたびに増やして画面を更新させる
+    private(set) var keyVersion = 0
+
+    func saveKey(_ key: String, for provider: Provider) throws {
+        try Keychain.save(key, account: provider.keychainAccount)
+        keyVersion += 1
+    }
+
+    func deleteKey(for provider: Provider) {
+        Keychain.delete(account: provider.keychainAccount)
+        keyVersion += 1
+    }
+
+    func hasKey(for provider: Provider) -> Bool {
+        _ = keyVersion
+        return apiKey(for: provider) != nil
+    }
+
+    /// ツールバーに出す「判定: …」の中身。ready が false なら判定できない
+    var summary: (label: String, ready: Bool) {
+        if provider == .apple {
+            return AppleLLM.unavailableReason == nil ? ("Apple オンデバイス（実験的）", true) : ("Apple オンデバイス（使えません）", false)
+        }
+        guard hasKey(for: provider), let model = model(for: provider) else {
+            return ("\(provider.tileName) の API キー未設定", false)
+        }
+        return (model.name, true)
+    }
+
     struct Judge {
         let client: any LLMClient
         let provider: Provider

@@ -9,15 +9,23 @@ struct AskTrackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainView(app: app)
+            MainView(app: app, updater: updaterController.updater)
         }
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("アップデートを確認…") { updaterController.checkForUpdates(nil) }
             }
+            // 設定は別ウィンドウではなく、同じウィンドウの中の画面として開く
+            CommandGroup(replacing: .appSettings) {
+                Button("設定…") { app.showSettings() }
+                    .keyboardShortcut(",", modifiers: .command)
+            }
         }
-        Settings {
-            SettingsView(settings: app.settings, updater: updaterController.updater)
+        Window("ミニウィンドウ", id: "mini") {
+            MiniPanelView(app: app)
         }
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 340, height: 480)
+        .windowLevel(.floating)
     }
 }
