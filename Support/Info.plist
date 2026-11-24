@@ -24,5 +24,11 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>会話を文字起こしし、質問リストのどれを聞いたかを判定するためにマイクを使います。音声は保存しません。</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://h-sgy.github.io/AskTrack/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>oGhqCVxTKVxpLWalwiuKc3FW/xlEB9Esx/uYdz0rX80=</string>
 </dict>
 </plist>

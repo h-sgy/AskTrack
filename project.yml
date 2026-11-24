@@ -6,6 +6,11 @@ options:
   deploymentTarget:
     macOS: "26.0"
 
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.10.1
+
 settings:
   base:
     MARKETING_VERSION: 0.1.0
@@ -29,6 +34,8 @@ targets:
     sources:
       - path: AskTrack
         type: syncedFolder
+    dependencies:
+      - package: Sparkle
     entitlements:
       path: Support/AskTrack.entitlements
       properties:
@@ -41,6 +48,10 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         NSMicrophoneUsageDescription: 会話を文字起こしし、質問リストのどれを聞いたかを判定するためにマイクを使います。音声は保存しません。
+        # Sparkle（自動アップデート）。公開鍵は公開してよい値。秘密鍵は Keychain（account: AskTrack）にある
+        SUFeedURL: https://h-sgy.github.io/AskTrack/appcast.xml
+        SUPublicEDKey: oGhqCVxTKVxpLWalwiuKc3FW/xlEB9Esx/uYdz0rX80=
+        SUEnableAutomaticChecks: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.h-sgy.AskTrack
