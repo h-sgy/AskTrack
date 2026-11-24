@@ -3,7 +3,7 @@
 - 仮称: **AskTrack**（Ask + Track。名前は後から変更可）
 - 作成日: 2026-11-24
 - 対象: Apple Silicon Mac / macOS 26 以降
-- リポジトリ: https://github.com/h-sgy/AskTrack （public）
+- リポジトリ: https://github.com/h-sgy/AskTrack （public、MIT ライセンス）
 
 ---
 
@@ -21,7 +21,7 @@
 |---|---|---|
 | F1 | マイク音声をリアルタイムで日本語文字起こし | MVP |
 | F2 | 質問リストの登録・編集（1行1質問のテキスト貼り付けに対応） | MVP |
-| F3 | 文字起こしを監視し、聞いた質問を自動でチェック（根拠の引用つき） | MVP |
+| F3 | 文字起こしを監視し、聞いた質問を自動でチェック（根拠となる発言つき） | MVP |
 | F4 | チェックの手動 ON/OFF（誤判定の修正） | MVP |
 | F5 | 使う LLM をユーザーが選べる。API キーはユーザーが設定 | MVP |
 | F6 | 自動アップデート | MVP（**最初の配布版から必須**） |
@@ -32,10 +32,11 @@
 
 ### 2.2 非機能要件
 
-- **遅延**: 発話してからチェックが付くまで 20 秒以内
+- **遅延**: 発話してからチェックが付くまで 30 秒以内（内訳は 5.1）
 - **プライバシー**: 音声は保存しない。テキストだけをローカルに保存する。外部 LLM を使っている間はその旨を UI に常時表示する
 - **秘密情報**: API キーは Keychain にだけ保存する。アプリ本体には一切同梱しない
-- **オフライン**: Apple のオンデバイス LLM を選べば、ネットワークなしで全機能が動く
+- **オフライン**: Apple のオンデバイス LLM を選べば、ネットワークなしで全機能が動く。ただし初回起動時だけ、音声認識モデルのダウンロードにネットワークが要る
+- **データ保全**: 録音中にアプリが落ちても、確定済みの書き起こしとチェック結果は失われない（4.5）
 
 ---
 
@@ -83,6 +84,9 @@ flowchart LR
 
 - **MVP: マイクのみ**（`AVAudioEngine.inputNode` にタップを付ける）
   - 質問するのはユーザー本人なので、「質問したか」の判定はマイクだけで成り立つ
+  - **入力デバイスの切り替えに追従する**: 録音中に AirPods をつないだり外したりすると、AVAudioEngine は止まる。`AVAudioEngineConfigurationChange` 通知を受けたら、タップを付け直してエンジンを再起動する。止まっていた間の音声は失われるので、UI に「マイクを再接続しました」と表示する
+  - 設定で入力デバイスを選べるようにする（既定はシステムの入力。指定は `kAudioOutputUnitProperty_CurrentDevice`）。会議アプリとは別のマイクを拾ってしまうのを防ぐ
+  - 会議アプリが AirPods のマイクを使うと、AirPods は通話用の低音質モードに切り替わり、認識精度が落ちる。精度を重視するなら、有線マイクか Mac 内蔵マイクを使うよう案内する
 - **Phase 2: システム音声**（相手の回答も文字起こししたい場合）
   - Core Audio Process Tap（`CATapDescription` と `AudioHardwareCreateProcessTap`。macOS 14.4 以降）を使う
   - ScreenCaptureKit と違って画面収録の権限が要らない。必要なのは `NSAudioCaptureUsageDescription` だけ
@@ -109,7 +113,7 @@ flowchart LR
 |---|---|---|
 | Anthropic API キー | ○ **推奨（既定）** | ユーザーが Claude Console で発行したキーを設定する。誤認識の多い書き起こしから意図を読み取るには大型モデルが要る |
 | Apple Foundation Models（オンデバイス） | ○ 採用（キー未設定時・機密用途） | キー不要・無料・オフラインで、外部に何も送らない。ただしコンテキストは約 4K トークンと小さく、誤認識の多い文の読み替えは苦手と見込む。精度より機密性を優先するときの選択肢 |
-| OpenAI API キー | ○ 採用（Phase 2） | 同上 |
+| OpenAI API キー | ○ 採用（Phase 2） | ユーザーが OpenAI Platform で発行したキーを設定する |
 | Apple Private Cloud Compute（WWDC26） | ○ Phase 2 | API キー不要。初回ダウンロード 200 万未満のアプリなら開発者の負担は無料。ユーザーごとに 1 日の上限があり、**iCloud+ 加入者は上限が増える**。つまり実質「ユーザーの iCloud+ サブスクで動く」。macOS 27 以降を想定しており、詳細は要確認 |
 | ChatGPT プランでサインイン（Sign in with ChatGPT） | △ Phase 3 | OpenAI が 2026 年に公式化した仕組みで、ユーザーの ChatGPT Plus / Pro などの利用枠で Responses API を呼べる。ただし現在は選ばれたパートナー向けの限定トライアルで、client ID の申請が必要 |
 | Claude Pro / Max でログイン | ✗ **不可** | Anthropic が 2026 年 2 月に規約で明記した。サブスクの OAuth は Claude Code と Claude.ai 専用で、サードパーティ製品での利用や提供は禁止。4 月から強制されている |
@@ -125,7 +129,7 @@ protocol LLMClient {
     func findAsked(questions: [PromptQuestion], transcript: String) async throws -> [AskedMatch]
 }
 struct PromptQuestion { let key: String; let text: String }  // key は "q1", "q2" … の短い ID
-struct AskedMatch: Decodable { let id: String; let evidence: String }
+struct AskedMatch: Decodable { let id: String; let segments: [String] }  // 5.3 のスキーマと同じ形
 ```
 
 - 実装は `AppleLLM`、`AnthropicLLM`、`OpenAILLM` で、1 ファイルずつ
@@ -143,7 +147,11 @@ struct AskedMatch: Decodable { let id: String; let evidence: String }
 - 保存場所は `~/Library/Application Support/AskTrack/`
   - `lists/<uuid>.json`: 質問リスト
   - `sessions/<yyyyMMdd-HHmm>-<uuid>.json`: セッション
-- 設定は UserDefaults に保存する（プロバイダ、モデル、判定の間隔）。API キーだけは Keychain
+- **録音中は逐次保存する**: 確定セグメントが増えたとき、またはチェックが変わったときに、セッションのファイルを書き直す
+  - 書き込みはアトミックにする（`Data.write(to:options: .atomic)`）。書き込み中に落ちても、ファイルが壊れない
+  - 1 時間のセッションでも数百 KB 程度なので、毎回まるごと書き直してよい
+  - 起動時に `endedAt` が空のセッションがあれば、録音中に落ちたものとして、過去のセッション一覧に「中断」と表示する
+- 設定は UserDefaults に保存する（プロバイダ、モデル、判定の間隔、入力デバイス）。API キーだけは Keychain
 - 音声は保存しない
 
 ### 4.6 自動アップデート: Sparkle 2
@@ -158,6 +166,7 @@ struct AskedMatch: Decodable { let id: String; let evidence: String }
   - Sparkle が新旧の比較に使うのは `CFBundleVersion`。リリースのたびに必ず増やす（`git rev-list --count HEAD` を使う）
   - リポジトリが public なので、配布は 1 リポジトリで完結させる。zip は GitHub Releases、appcast.xml は GitHub Pages（`gh-pages` ブランチ）に置き、`SUFeedURL` は `https://h-sgy.github.io/AskTrack/appcast.xml` にする
   - **Sparkle が入っていない版を配ってしまうと、その版のユーザーには以後アップデートが届かない**。そのため最初の配布版から入れる
+  - Sparkle は MIT ライセンスなので、著作権表示をアプリに含める（「AskTrack について」の画面に出す `Credits.rtf`）
 - Mac App Store を使わない理由: App Store なら自動アップデートは Apple がやってくれるが、審査のぶん配信が遅れ、サンドボックスの制約もある。「自分で即座にアップデートを配りたい」という要件には直接配布の方が合う
 
 ---
@@ -169,13 +178,19 @@ struct AskedMatch: Decodable { let id: String; let evidence: String }
 - 確定セグメントが来たら **5 秒デバウンス**してから判定する。最短でも **15 秒** は間隔を空ける
 - 未チェックの質問がない、または録音を止めているときは呼ばない
 - 判定中に次のきっかけが来たら、今の判定が終わってから 1 回だけ再実行する（並列には実行しない）
+- 遅延の内訳（最悪の場合）: 文字起こしの確定待ち 数秒 ＋ デバウンス 5 秒 ＋ 最短間隔の残り 最大 15 秒 ＋ LLM の応答 数秒 ≒ 30 秒。2.2 の要件はこれに合わせた
+- 文の区切りなく話し続けると、文字起こしの確定が遅れる可能性がある（要検証）。遅すぎる場合は、暫定結果も判定に含めるかを検討する
 
 ### 5.2 入力
 
 - **質問**: 未チェックのものだけを送る。ID は UUID ではなく `q1`〜`qN` の短い ID に置き換える（トークン節約と ID の取り違え防止）
-- **書き起こし**: 直近 **3 分ぶん** の確定セグメント。各行の頭に `[s12 03:15]` の形でセグメント ID（セッション内の連番）と時刻を付ける。前回の判定範囲と重ねることで、セグメントの境目をまたいだ質問も拾う
-  - オンデバイス LLM（約 4K トークン）にも収まる量。日本語の会話 3 分は約 900 字
-  - 外部 LLM のときは 5 分ぶんに広げてもよい（前後の文脈が多いほど誤認識を読み解きやすい）
+- **書き起こし**: 確定セグメントの各行の頭に、`[s12 03:15]` の形でセグメント ID（セッション内の連番）と時刻を付ける
+- **判定範囲**: 「どこまで判定に成功したか」を表す位置 `judgedUntil`（セグメント番号）を持ち、**`judgedUntil` より少し前から、最新の確定セグメントまで**を送る
+  - 判定に成功したら、`judgedUntil` を送った範囲の最後まで進める。失敗したら（429 / 5xx / 通信エラー / refusal / 応答の解析失敗）進めない。こうすれば、失敗が続いても、その間の発言は次に成功した判定で必ず見られる
+  - ただし、同じ範囲で refusal か解析失敗が 2 回続いたら、その範囲は飛ばして `judgedUntil` を進め、UI に「判定できなかった範囲」として表示する（同じ範囲で永久に詰まるのを防ぐ）
+  - 前回の範囲と重ねる幅は、オンデバイスで 1 分、外部 LLM で 3 分。セグメントの境目をまたいだ質問も拾え、外部 LLM は前後の文脈が多いほど誤認識を読み解きやすい
+  - 1 回に送る量には上限を設ける（オンデバイス 3 分、外部 LLM 10 分）。失敗が長く続いた後などで範囲が上限を超えたら、古い方から上限ごとに区切って順番に判定する
+  - 日本語の会話 3 分は約 900 字で、オンデバイス LLM（約 4K トークン）にも収まる
 
 ### 5.3 出力スキーマ（全プロバイダ共通）
 
@@ -223,10 +238,12 @@ Apple Foundation Models では、同じ形の構造体に `@Generable` を付け
 
 根拠は引用文ではなく**セグメント ID** で返させる。引用文で返させると、LLM が誤認識を直した形で引用してしまい、書き起こしと文字列が一致せずに検証で落ちる。ID なら完全一致で照合できる。
 
-1. 返ってきた `id` が、送った未チェックの質問に含まれているか
-2. `segments` がすべて、送った書き起こしの範囲内の ID か
-3. 両方を満たしたものだけをチェックし、該当セグメントの本文と時刻を `evidence` として保存する（UI ではツールチップで表示）
-4. ユーザーが手動でチェックを外した質問は、そのセッションでは自動判定の対象外にする（同じ根拠ですぐ付け直されるのを防ぐ）
+1. 返ってきた `id` が、送った質問に含まれているか
+2. その質問が**反映する時点で**まだ未チェックで、手動除外もされていないか（判定の実行中にユーザーが手動で外した質問を、返ってきた結果で付け直さないため）
+3. `segments` がすべて、送った書き起こしの範囲内の ID か
+4. すべて満たしたものだけをチェックし、該当セグメントの本文と時刻を `evidence` として保存する（UI ではツールチップで表示）
+
+ユーザーが手動でチェックを外した質問は、そのセッションでは自動判定の対象外にする（同じ根拠ですぐ付け直されるのを防ぐ）。
 
 ### 5.6 Anthropic へのリクエスト例
 
@@ -259,20 +276,20 @@ content-type: application/json
 - `fallbacks: "default"`: 安全分類器にリクエストを断られたとき、サーバー側で別のモデルに自動で切り替えて再実行する
 - `stop_reason == "refusal"` が返ったら、その回の判定は捨てて次のきっかけを待つ
 - 応答の `text` ブロックを JSON として解析し、5.5 の検証にかける
-- エラー処理: 429 / 5xx は次のきっかけまで待つ（リトライで連打しない）。401 なら「API キーを確認してください」と表示して判定を止める
+- エラー処理: 429 / 5xx / 通信エラーは次のきっかけまで待つ（リトライで連打しない。`judgedUntil` を進めないので発言は取りこぼさない。5.2）。401 なら「API キーを確認してください」と表示して判定を止める
 
 OpenAI の場合は `POST /v1/responses` に `text.format: { type: "json_schema", strict: true, ... }` を付けて送る。
 
 ### 5.7 コストの目安（概算、1 時間のセッション）
 
-前提: 判定約 120 回（話している間だけ実行）、1 回あたり入力 約 2,000 トークン、出力 約 150 トークン＋思考トークン。
+前提: 判定は 1 時間に 120〜240 回（話している間だけ実行する。最短 15 秒間隔なので、話し続けると 240 回）。1 回あたり入力 約 2,000 トークン、出力 約 150 トークン＋思考 約 300 トークン。
 
 | プロバイダ / モデル | 目安 |
 |---|---|
 | Apple オンデバイス / PCC | $0 |
-| Claude Haiku 5.5 | 約 $0.05 |
-| Claude Sonnet 5.5 | 約 $0.5〜1 |
-| Claude Opus 5.5（デフォルト） | 約 $1〜2 |
+| Claude Haiku 5.5 | 約 $0.05〜0.1 |
+| Claude Sonnet 5.5 | 約 $1〜2 |
+| Claude Opus 5.5（デフォルト） | 約 $2〜4 |
 
 設定画面で、モデルの横にこの目安を表示する。
 
@@ -289,7 +306,7 @@ struct QuestionList: Codable, Identifiable {
     var questions: [Question]
 }
 
-struct Segment: Codable { var start: TimeInterval; var text: String }   // 確定セグメントのみ保存
+struct Segment: Codable { var start: TimeInterval; var text: String }   // 確定セグメントのみ保存。配列の添字 + 1 がセグメント ID（s1, s2, …）
 
 struct Check: Codable {
     var questionID: UUID
@@ -302,6 +319,7 @@ struct Session: Codable, Identifiable {
     var id: UUID
     var listTitle: String
     var startedAt: Date
+    var endedAt: Date?          // nil のまま残っていたら、録音中に落ちたセッション（4.5）
     var questions: [Question]   // 開始時点のスナップショット（後でリストを編集しても壊れない）
     var segments: [Segment]
     var checks: [Check]
@@ -327,7 +345,11 @@ struct Session: Codable, Identifiable {
 ```
 
 - **メインウィンドウ**: `NavigationSplitView`。サイドバーに質問リストと過去のセッション、詳細側にチェックリストと文字起こしを並べる
-- **ミニウィンドウ**: 未チェックの質問だけを小さく表示し、常に最前面に置く（`.windowLevel(.floating)`）。Zoom などを全画面にしていても見える
+- **ミニウィンドウ**: 未チェックの質問だけを小さく表示し、常に最前面に置く
+  - Zoom などの全画面表示は専用のスペースを使うので、`.windowLevel(.floating)` だけではその上に出ない。`NSPanel` を使い、`level = .floating`、`collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]` を設定し、`styleMask` に `.nonactivatingPanel` を付ける（クリックしても会議アプリからフォーカスを奪わない）
+- **画面共有で相手に見せない**: メインウィンドウとミニウィンドウの両方に `sharingType = .none` を設定し、画面キャプチャから除外する
+  - macOS 15 以降の ScreenCaptureKit では効かないという報告があるので、実機での検証が必要
+  - 効かない場合に備え、画面共有は「画面全体」ではなく「ウィンドウ単位」で行うよう、録音開始時に案内する
 - **設定**: プロバイダの選択、API キー（SecureField と接続テスト）、モデル、判定の間隔、認識言語（既定は ja-JP）、自動アップデートの ON/OFF
 - 外部 LLM を使っている間は、ツールバーにプロバイダ名を常に表示する。オンデバイスのときは 🔒 を付ける
 
@@ -367,6 +389,8 @@ CI に移すときに GitHub Secrets へ入れるもの: Developer ID 証明書�
 ```
 AskTrack/
 ├── DESIGN.md
+├── LICENSE                      # MIT
+├── README.md                    # 使い方と、外部 LLM に送るデータの説明
 ├── AskTrack.xcodeproj
 ├── AskTrack/
 │   ├── AskTrackApp.swift        # App、Sparkle、メニュー
@@ -398,7 +422,7 @@ AskTrack/
 
 | フェーズ | 内容 |
 |---|---|
-| **Phase 0: 土台** | git init、Xcode プロジェクト作成、Sparkle と release.sh を組み込み、空の v0.1 を公証付きで配って**自動アップデートが動くことを先に確認する** |
+| **Phase 0: 土台** | Xcode プロジェクト作成（リポジトリと設計書は作成済み）、Sparkle と release.sh を組み込み、空の v0.1 を公証付きで配って**自動アップデートが動くことを先に確認する** |
 | **Phase 1: MVP** | マイクから SpeechTranscriber（ja-JP）で文字起こし、質問リストの作成と編集、Apple オンデバイスと Anthropic の判定、手動での修正、ミニウィンドウ、保存と Markdown 書き出し |
 | **Phase 2** | OpenAI 対応、システム音声（Core Audio Tap）、Apple PCC（macOS 27）、Foundation Models の `LanguageModel` プロトコルの評価、GitHub Actions 化 |
 | **Phase 3** | Sign in with ChatGPT（申請が通った場合）、Gemini、「回答をもらったか」の判定、終了後の要約 |
@@ -413,7 +437,10 @@ AskTrack/
 |---|---|
 | 日本語の認識精度が低い（雑音、専門用語、早口） | 誤認識の読み替えは LLM に任せる前提で設計した（5.4）。根拠はセグメント ID で返させ、誤認識による照合の失敗を避ける（5.5）。そのうえで contextual strings に用語を渡し、外部マイクを推奨する。それでも足りなければ WhisperKit に差し替えるか、音声をそのまま受け取れるマルチモーダル LLM に渡す |
 | オンデバイス LLM では誤認識を読み解けない | 既定を外部 LLM（API キー）にし、オンデバイスは機密用途の選択肢に留める |
-| 誤チェックによる聞き漏れ | プロンプトを確信がなければ返さない側に倒す、evidence を検証する、手動で修正できるようにする |
+| 誤チェックによる聞き漏れ | プロンプトを確信がなければ返さない側に倒す、根拠のセグメント ID を検証する、手動で修正できるようにする |
+| 判定の失敗が続いて、その間の発言を見落とす | `judgedUntil` を成功時だけ進める（5.2） |
+| 画面共有で質問リストが相手に見える | `sharingType = .none`（要検証）と、ウィンドウ単位での共有の案内（7 章） |
+| 録音中のマイク切り替えや、アプリの異常終了 | エンジンの自動再起動（4.2）と逐次保存（4.5） |
 | 機密性の高いヒアリングの内容を外部に送ってしまう | セッションごとにオンデバイスへ切り替えられるようにし、外部 LLM の使用中はそれを常時表示する |
 | 録音について相手の同意 | 運用でカバーする（冒頭で告知）。音声を保存しない設計で負担を減らす |
 | public リポジトリに秘密情報を誤って commit する | 証明書・API キー・Sparkle の秘密鍵は Keychain と GitHub Secrets にだけ置き、`.gitignore` で `*.p12` `*.p8` などを除外する |
@@ -423,9 +450,13 @@ AskTrack/
 ### 未決事項（決めてほしいこと）
 
 1. **アプリ名**（仮称 AskTrack のままでよいか）
-2. **配布範囲**: 自分だけ / 社内 / 一般公開。一般公開ならプライバシーポリシーとサポート窓口が必要になる
-3. **判定の対象**: 「質問したか」だけでよいか、「回答をもらったか」まで要るか（後者はシステム音声が前提）
-4. **主な利用場面**: 対面か、オンライン会議か（Phase 2 のシステム音声の優先度が変わる）
+2. **判定の対象**: 「質問したか」だけでよいか、「回答をもらったか」まで要るか（後者はシステム音声が前提）
+3. **主な利用場面**: 対面か、オンライン会議か（Phase 2 のシステム音声の優先度が変わる）
+
+### 決定済み
+
+- リポジトリは public、ライセンスは MIT（2026-11-24）
+- 配布は GitHub Releases なので、アプリは誰でもダウンロードできる（一般公開）。プライバシーポリシーの代わりに、README に「外部 LLM を選んだ場合は、書き起こしのテキストがそのプロバイダに送られる。音声はどこにも送らず、保存もしない」と明記する
 
 ---
 
