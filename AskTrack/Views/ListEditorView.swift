@@ -1,12 +1,10 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// タスクアプリのように 1 問ずつ行を追加・並べ替えする
 struct ListEditorView: View {
     let app: AppModel
     @State private var list: QuestionList
     @State private var newText = ""
-    @State private var importing = false
     @State private var bulkAdding = false
     @FocusState private var focus: Field?
 
@@ -50,7 +48,6 @@ struct ListEditorView: View {
             }
             HStack {
                 Button("まとめて追加…") { bulkAdding = true }
-                Button("ファイルから読み込む…") { importing = true }
                 Spacer()
                 Text("\(count) 問").foregroundStyle(.secondary)
                 Button("このリストで録音を始める") { app.startSession(with: list) }
@@ -64,14 +61,6 @@ struct ListEditorView: View {
         .onAppear { focus = .new }   // 開いたらすぐ質問を打ち込める（タイトルの上書きを防ぐ）
         .sheet(isPresented: $bulkAdding) {
             BulkAddSheet { append(QuestionList.parseQuestions($0)) }
-        }
-        .fileImporter(isPresented: $importing,
-                      allowedContentTypes: [.plainText, UTType(filenameExtension: "md") ?? .plainText]) { result in
-            do {
-                append(QuestionList.parseQuestions(try String(contentsOf: result.get(), encoding: .utf8)))
-            } catch {
-                app.errorMessage = "ファイルを読み込めませんでした: \(error.localizedDescription)"
-            }
         }
     }
 
