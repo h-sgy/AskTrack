@@ -79,6 +79,11 @@ final class AppModel {
         model.start()
     }
 
+    /// 終わったセッションと同じ質問で、新しいセッションとして最初から録音する（前回の記録はそのまま残る）
+    func restart(from session: Session) {
+        startSession(with: QuestionList(title: session.listTitle, questions: session.questions))
+    }
+
     /// 表示用。録音中のセッションは最新の状態を返す
     func session(id: UUID) -> Session? {
         if let live, live.session.id == id { return live.session }

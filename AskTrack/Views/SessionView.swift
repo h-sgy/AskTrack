@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 struct SessionView: View {
     let session: Session
     let live: SessionModel?
+    /// 終わったセッションの画面で、同じ質問で最初から録り直す（別の録音中は nil）
+    var onRestart: (() -> Void)? = nil
     @State private var exporting = false
     @Environment(\.openWindow) private var openWindow
 
@@ -105,6 +107,11 @@ struct SessionView: View {
             } else {
                 Label("録音中にアプリが終了したため、途中までの記録です。", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
+            }
+            if let onRestart {
+                Button(action: onRestart) { Label("もう一度録音する（最初から）", systemImage: "mic.fill") }
+                    .buttonStyle(.borderedProminent)
+                    .help("同じ質問で新しいセッションを始めます。この記録はそのまま残ります")
             }
         }
     }

@@ -39,7 +39,8 @@ struct MainView: View {
                 }
             case .session(let id)?:
                 if let session = app.session(id: id) {
-                    SessionView(session: session, live: app.live?.session.id == id ? app.live : nil)
+                    SessionView(session: session, live: app.live?.session.id == id ? app.live : nil,
+                                onRestart: app.isRecording ? nil : { app.restart(from: session) })
                 }
             case .settings?:
                 SettingsView(settings: app.settings, updater: updater, onBack: app.closeSettings)
