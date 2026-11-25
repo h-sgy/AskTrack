@@ -72,6 +72,10 @@ struct SessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color.askRed)
             LevelMeter(level: live?.level ?? 0)
+            if let name = live?.inputName {
+                Label(name, systemImage: "mic").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    .help("使っているマイク（設定で変えられます）")
+            }
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Text("● \(clockText(live?.recordedDuration(at: context.date) ?? 0))")
                     .fontWeight(.semibold)

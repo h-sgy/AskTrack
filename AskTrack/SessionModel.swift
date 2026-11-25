@@ -15,6 +15,8 @@ final class SessionModel {
     private(set) var judgeNotice: String?
     private(set) var skipped: [Range<Int>] = []
     private(set) var judgeError: LLMError?
+    /// 今使っているマイクの名前
+    private(set) var inputName: String?
 
     var isActive: Bool { state != .idle && state != .finished }
 
@@ -119,11 +121,16 @@ final class SessionModel {
             let transcriber = try await Transcriber.make { _ in self.message = "音声認識モデルをダウンロード中…（初回のみ）" }
             try? await transcriber.setHints(session.questions.map(\.text))   // 効かなくても文字起こしは続ける
             let capture = AudioCapture()
+            capture.onNotice = { [weak self] notice in
+                self?.message = notice
+                self?.inputName = self?.capture?.currentDevice?.name
+            }
             let input = try capture.start(format: transcriber.audioFormat) { level in
                 Task { @MainActor in self.level = level }
             }
             self.capture = capture
             self.transcriber = transcriber
+            inputName = capture.currentDevice?.name
             // 録音時間とセグメントの時刻をそろえるため、実際に録音が始まった時刻から数える
             // （初めて保存する前なので、保存ファイル名は変わらない）
             session.startedAt = .now

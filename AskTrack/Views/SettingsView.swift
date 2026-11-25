@@ -1,3 +1,4 @@
+import AppKit
 import Sparkle
 import SwiftUI
 
@@ -28,6 +29,9 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
                     .accessibilityLabel("見本")
+                }
+                SettingsCard(title: "マイク", caption: "macOS の「サウンド > 入力」で選んでいるマイクで録音します。録音中に変えても、そのまま切り替わります。") {
+                    MicrophoneInfo()
                 }
                 SettingsCard(title: "判定に使う LLM", caption: "質問を聞いたかどうかの判定に使います。文字起こしは Mac の中で行います。") {
                     ProviderPicker(settings: settings)
@@ -124,6 +128,36 @@ private struct SettingsCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.separator))
+    }
+}
+
+/// 今使っているマイク。macOS の入力を変えると、その場で表示も変わる
+private struct MicrophoneInfo: View {
+    @State private var name = ""
+    @State private var observer: AudioDeviceObserver?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Label(name, systemImage: "mic").font(.body.weight(.medium))
+                Spacer()
+                Button("サウンド設定を開く…") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Sound-Settings.extension")!)
+                }
+                .controlSize(.large)
+            }
+            Text("AirPods などの Bluetooth マイクは、会議アプリと同時に使うと音質が下がり、認識精度が落ちます。対面では Mac 内蔵のマイクか有線のマイクを使い、Mac を自分と相手の間に置いてください。")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .onAppear {
+            refresh()
+            observer = AudioDeviceObserver { refresh() }
+        }
+        .onDisappear { observer = nil }
+    }
+
+    private func refresh() {
+        name = AudioDevices.defaultInput()?.name ?? "マイクが見つかりません"
     }
 }
 
