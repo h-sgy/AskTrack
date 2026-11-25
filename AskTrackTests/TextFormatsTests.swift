@@ -34,6 +34,15 @@ import Testing
     #expect(QuestionList.parseQuestions(text) == ["簡単な自己紹介をしてもらえるか", "いくらくらいかかるのか", "詳細は公式サイトにあるのか"])
 }
 
+@Test func allBoldItemsAreQuestionsNotHeadings() {
+    // 全部が太字なら、見出しではなく質問そのもの
+    let text = """
+    1. **自己紹介と全体像について**
+    2. **一番伸びた記事の具体例について**
+    """
+    #expect(QuestionList.parseQuestions(text) == ["自己紹介と全体像について", "一番伸びた記事の具体例について"])
+}
+
 @Test func doesNotStripHyphenatedWords() {
     #expect(QuestionList.parseQuestions("B-to-B の比率は？") == ["B-to-B の比率は？"])
 }
