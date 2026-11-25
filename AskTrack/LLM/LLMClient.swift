@@ -116,6 +116,7 @@ enum JudgePrompt {
     - 一部しか聞いていない、話題に触れただけ、という場合は含めない
     - 回答者が自分から話題にしただけの場合や、回答者からの逆質問は含めない
     - 確信が持てない場合は含めない
+    - 最後の「認識中」の行は、まだ話している途中の文です。途中まででも質問の意図がはっきりしていれば根拠にしてよい
     尋ねた質問だけを返し、segments には根拠となる行のセグメント ID（[s12 …] の s12）を入れてください。
     """
 
@@ -151,21 +152,31 @@ enum JudgePrompt {
 struct JudgeRequest {
     let questions: [PromptQuestion]
     let transcript: String
-    let range: Range<Int>                 // 送ったセグメントの添字
+    let range: Range<Int>                 // 送った確定セグメントの添字
     private let questionIDs: [String: UUID]
+    private let sentTexts: [Int: String]  // 送った行（認識中の行を含む）。根拠はここから取る
 
-    init(unchecked: [Question], segments: [Segment], range: Range<Int>) {
-        let keyed = unchecked.enumerated().map { ("q\($0.offset + 1)", $0.element) }
-        questions = keyed.map { PromptQuestion(key: $0.0, text: $0.1.text) }
+    /// - Parameters:
+    ///   - questions: チェック済みも含めて全部送る。済みの質問に当たる発言を、似た別の質問に回させないため
+    ///   - volatile: 認識中（未確定）の文。range が最新の確定セグメントまで届いているときだけ最後の行に付ける
+    init(questions: [Question], segments: [Segment], range: Range<Int>, volatile: String = "") {
+        let keyed = questions.enumerated().map { ("q\($0.offset + 1)", $0.element) }
+        self.questions = keyed.map { PromptQuestion(key: $0.0, text: $0.1.text) }
         questionIDs = Dictionary(uniqueKeysWithValues: keyed.map { ($0.0, $0.1.id) })
         self.range = range
-        transcript = range.map { "[s\($0 + 1) \(Self.timestamp(segments[$0].start))] \(segments[$0].text)" }
-            .joined(separator: "\n")
+        var lines = range.map { "[s\($0 + 1) \(Self.timestamp(segments[$0].start))] \(segments[$0].text)" }
+        var texts = Dictionary(uniqueKeysWithValues: range.map { ($0, segments[$0].text) })
+        if !volatile.isEmpty, range.upperBound == segments.count {
+            lines.append("[s\(segments.count + 1) 認識中] \(volatile)")
+            texts[segments.count] = volatile
+        }
+        transcript = lines.joined(separator: "\n")
+        sentTexts = texts
     }
 
     /// 検証を通った結果だけをチェックにする。
     /// blocked は「反映する時点で」チェック済みか手動で外された質問（判定中に手動で外したものを付け直さない）
-    func accept(_ matches: [AskedMatch], segments: [Segment], blocked: Set<UUID>, at now: Date) -> [Check] {
+    func accept(_ matches: [AskedMatch], blocked: Set<UUID>, at now: Date) -> [Check] {
         var result: [Check] = []
         for match in matches {
             guard let questionID = questionIDs[match.id],
@@ -173,9 +184,9 @@ struct JudgeRequest {
                   !result.contains(where: { $0.questionID == questionID }) else { continue }
             let indices = match.segments.compactMap(Self.segmentIndex)
             guard !indices.isEmpty, indices.count == match.segments.count,
-                  indices.allSatisfy(range.contains) else { continue }
+                  indices.allSatisfy({ sentTexts[$0] != nil }) else { continue }
             let sorted = Array(Set(indices)).sorted()
-            let evidence = sorted.map { segments[$0].text }.joined(separator: " ")
+            let evidence = sorted.compactMap { sentTexts[$0] }.joined(separator: " ")
             result.append(Check(questionID: questionID, checked: true, at: now, evidence: evidence, manual: false,
                                 evidenceIndices: sorted))
         }

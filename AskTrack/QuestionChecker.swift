@@ -63,6 +63,12 @@ struct JudgeProgress {
         return lower..<max(upper, judgedUntil + 1)
     }
 
+    /// 新しい確定セグメントがないとき、認識中の文と一緒に送る文脈（最後の overlap 秒）
+    func recentRange(in segments: [Segment]) -> Range<Int> {
+        guard let last = segments.last else { return 0..<0 }
+        return (segments.firstIndex { $0.start >= last.start - overlap } ?? segments.count)..<segments.count
+    }
+
     mutating func succeeded(_ range: Range<Int>) {
         judgedUntil = max(judgedUntil, range.upperBound)
         failure = nil
@@ -94,6 +100,8 @@ final class QuestionChecker {
 
     private let client: any LLMClient
     private let session: () -> Session
+    private let volatile: () -> String
+    private var lastVolatile = ""
     private let apply: ([Check]) -> Void
     private var schedule = CheckSchedule()
     private var progress: JudgeProgress
@@ -103,17 +111,21 @@ final class QuestionChecker {
 
     /// - Parameters:
     ///   - session: 判定時点のセッションを返す
+    ///   - volatile: 認識中（未確定）の文を返す。確定を待たずに判定するため
     ///   - apply: 検証を通ったチェックを書き込む
     init(client: any LLMClient, overlap: TimeInterval, limit: TimeInterval, minInterval: TimeInterval = 15,
-         session: @escaping () -> Session, apply: @escaping ([Check]) -> Void) {
+         session: @escaping () -> Session, volatile: @escaping () -> String = { "" },
+         apply: @escaping ([Check]) -> Void) {
         self.client = client
         self.session = session
+        self.volatile = volatile
         self.apply = apply
         progress = JudgeProgress(overlap: overlap, limit: limit)
         schedule.minInterval = minInterval
     }
 
-    func segmentArrived() {
+    /// 確定セグメントか認識中の文が届いた
+    func transcriptChanged() {
         guard !finished, lastError?.isFatal != true else { return }   // キーや設定が無効なら呼び続けない
         if let at = schedule.segmentArrived(at: .now) { fire(at: at) }
     }
@@ -149,15 +161,24 @@ final class QuestionChecker {
             if let at = schedule.finished(at: .now, backlog: backlog), !finished { fire(at: at) }
         }
         let snapshot = session()
-        let unchecked = snapshot.questions.filter { !snapshot.blockedQuestionIDs.contains($0.id) }
-        guard !unchecked.isEmpty, let range = progress.nextRange(in: snapshot.segments) else { return }
+        let volatile = finished ? "" : volatile()   // 止めたあとは確定セグメントだけ
+        guard snapshot.questions.contains(where: { !snapshot.blockedQuestionIDs.contains($0.id) }) else { return }
+        let range: Range<Int>
+        if let next = progress.nextRange(in: snapshot.segments) {
+            range = next
+        } else if !volatile.isEmpty, volatile != lastVolatile {
+            range = progress.recentRange(in: snapshot.segments)   // 新しい確定はないが、話している途中の文が伸びた
+        } else {
+            return
+        }
 
-        let request = JudgeRequest(unchecked: unchecked, segments: snapshot.segments, range: range)
+        let request = JudgeRequest(questions: snapshot.questions, segments: snapshot.segments, range: range,
+                                   volatile: volatile)
         do {
             let matches = try await client.findAsked(questions: request.questions, transcript: request.transcript)
-            let now = session()   // 反映時点の状態で検証する
-            apply(request.accept(matches, segments: now.segments, blocked: now.blockedQuestionIDs, at: .now))
+            apply(request.accept(matches, blocked: session().blockedQuestionIDs, at: .now))   // 反映時点の状態で検証する
             progress.succeeded(range)
+            lastVolatile = volatile
             lastError = nil
             backlog = range.upperBound < snapshot.segments.count   // 上限で区切った残りがある
         } catch {

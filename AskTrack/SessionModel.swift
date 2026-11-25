@@ -114,7 +114,8 @@ final class SessionModel {
             // 判定が終わるまで互いを参照する。end() で checker を外して循環を切る
             checker = QuestionChecker(client: judge.client, overlap: judge.provider.overlap, limit: judge.provider.limit,
                                       minInterval: settings.minInterval,
-                                      session: { self.session }, apply: { self.apply($0) })
+                                      session: { self.session }, volatile: { self.volatileText },
+                                      apply: { self.apply($0) })
         }
         do {
             message = "音声認識を準備中…"
@@ -141,11 +142,12 @@ final class SessionModel {
                 switch event {
                 case .volatile(let text):
                     volatileText = text
+                    checker?.transcriptChanged()
                 case .final(let segment):
                     session.segments.append(segment)
                     volatileText = ""
                     save()
-                    checker?.segmentArrived()
+                    checker?.transcriptChanged()
                     refreshJudgeStatus()
                 }
             }

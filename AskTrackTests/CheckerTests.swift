@@ -84,6 +84,12 @@ struct JudgeProgressTests {
     }
 }
 
+@Test func recentRangeIsTheLastOverlapSeconds() {
+    let segments = (0..<30).map { Segment(start: Double($0) * 10, text: "s\($0)") }   // 0〜290 秒
+    #expect(JudgeProgress(overlap: 60, limit: 180).recentRange(in: segments) == 23..<30)   // 230〜290 秒
+    #expect(JudgeProgress(overlap: 60, limit: 180).recentRange(in: []) == 0..<0)
+}
+
 struct FakeLLM: LLMClient {
     let result: Result<[AskedMatch], LLMError>
     func findAsked(questions: [PromptQuestion], transcript: String) async throws -> [AskedMatch] {

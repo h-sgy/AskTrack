@@ -145,9 +145,9 @@ struct LiveLLMTests {
         let segments = [Segment(start: 3, text: "本日はよろしくお願いします"),
                         Segment(start: 10, text: "では今年度の予算感を教えてもらえますか"),
                         Segment(start: 15, text: "五百万円ほどです")]
-        let request = JudgeRequest(unchecked: [budget, owner], segments: segments, range: 0..<3)
+        let request = JudgeRequest(questions: [budget, owner], segments: segments, range: 0..<3)
         let matches = try await client.findAsked(questions: request.questions, transcript: request.transcript)
-        let checks = request.accept(matches, segments: segments, blocked: [], at: .now)
+        let checks = request.accept(matches, blocked: [], at: .now)
         #expect(checks.map(\.questionID) == [budget.id], "\(label): \(matches)")
     }
 }

@@ -65,11 +65,11 @@ struct SettingsView: View {
     private var intervalControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                Button { settings.minInterval = max(15, settings.minInterval - 5) } label: {
+                Button { settings.minInterval = max(5, settings.minInterval - 5) } label: {
                     Image(systemName: "minus").frame(width: 20)
                 }
                 .accessibilityLabel("間隔を短くする")
-                .disabled(settings.minInterval <= 15)
+                .disabled(settings.minInterval <= 5)
                 Text("最短 \(Int(settings.minInterval)) 秒おき")
                     .font(.title3.weight(.semibold))
                     .monospacedDigit()
@@ -259,7 +259,7 @@ private struct ProviderDetail: View {
         guard let key = settings.apiKey(for: provider), let model = settings.model(for: provider) else { return }
         testing = true
         defer { testing = false }
-        let request = JudgeRequest(unchecked: [Question(text: "今年度の予算はどのくらいですか")],
+        let request = JudgeRequest(questions: [Question(text: "今年度の予算はどのくらいですか")],
                                    segments: [Segment(start: 0, text: "では今年度の予算感を教えてもらえますか")], range: 0..<1)
         do {
             _ = try await provider.client(apiKey: key, model: model.id)
