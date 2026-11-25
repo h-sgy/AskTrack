@@ -6,10 +6,12 @@ struct AskTrackApp: App {
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
     @State private var app = AppModel()
+    @AppStorage(TextSize.storageKey) private var textSize = TextSize.large
 
     var body: some Scene {
         WindowGroup {
             MainView(app: app, updater: updaterController.updater)
+                .environment(\.textScale, textSize.scale)
         }
         .commands {
             CommandGroup(after: .appInfo) {
@@ -23,6 +25,7 @@ struct AskTrackApp: App {
         }
         Window("ミニウィンドウ", id: "mini") {
             MiniPanelView(app: app)
+                .environment(\.textScale, textSize.scale)
         }
         .windowResizability(.contentMinSize)
         .defaultSize(width: 340, height: 480)

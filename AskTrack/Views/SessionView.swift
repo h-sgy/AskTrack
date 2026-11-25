@@ -152,12 +152,12 @@ private struct ChecklistView: View {
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: checked ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
+                    .scaledFont(18)
                     .foregroundStyle(checked ? Color.askGreen : .secondary)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(question.text).fontWeight(.medium)
+                    Text(question.text).scaledFont(15, weight: .medium)
                     if let detail = detail(check) {
-                        Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                        Text(detail).scaledFont(12).foregroundStyle(.secondary).lineLimit(3)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -186,6 +186,7 @@ private struct TranscriptView: View {
     let session: Session
     let highlighted: Set<Int>
     let volatileText: String
+    @Environment(\.textScale) private var scale
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -195,9 +196,10 @@ private struct TranscriptView: View {
                     ForEach(Array(session.segments.enumerated()), id: \.offset) { index, segment in
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text(JudgeRequest.timestamp(segment.start))
-                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                .frame(width: 44, alignment: .leading)
+                                .scaledFont(12, monospacedDigit: true).foregroundStyle(.secondary)
+                                .frame(width: 44 * scale, alignment: .leading)
                             Text(segment.text)
+                                .scaledFont(14)
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -208,8 +210,8 @@ private struct TranscriptView: View {
                     }
                     if !volatileText.isEmpty {
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("認識中").font(.caption).foregroundStyle(.secondary).frame(width: 44, alignment: .leading)
-                            Text(volatileText).foregroundStyle(.secondary)
+                            Text("認識中").scaledFont(12).foregroundStyle(.secondary).frame(width: 44 * scale, alignment: .leading)
+                            Text(volatileText).scaledFont(14).foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 6)
                         .padding(.horizontal, 10)

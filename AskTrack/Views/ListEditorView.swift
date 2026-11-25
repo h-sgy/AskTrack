@@ -39,8 +39,9 @@ struct ListEditorView: View {
                 }
                 .onMove { list.questions.move(fromOffsets: $0, toOffset: $1) }
                 HStack {
-                    Image(systemName: "plus.circle").foregroundStyle(.secondary)
+                    Image(systemName: "plus.circle").scaledFont(15).foregroundStyle(.secondary)
                     TextField("質問を追加（Return で次へ）", text: $newText)
+                        .scaledFont(15)
                         .textFieldStyle(.plain)
                         .focused($focus, equals: .new)
                         .onSubmit(addNew)
@@ -105,8 +106,9 @@ private struct QuestionRow: View {
 
     var body: some View {
         HStack {
-            Image(systemName: "circle").foregroundStyle(.secondary)
+            Image(systemName: "circle").scaledFont(15).foregroundStyle(.secondary)
             TextField("質問", text: $question.text)
+                .scaledFont(15)
                 .textFieldStyle(.plain)
                 .focused(focus, equals: .question(question.id))
                 .onSubmit(onSubmit)

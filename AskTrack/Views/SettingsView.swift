@@ -7,11 +7,28 @@ struct SettingsView: View {
     let updater: SPUUpdater
     let onBack: () -> Void
     @State private var autoUpdate = false
+    @AppStorage(TextSize.storageKey) private var textSize = TextSize.large
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("設定").font(.system(size: 26, weight: .bold))
+                SettingsCard(title: "表示", caption: "質問リスト・文字起こし・ミニウィンドウの文字の大きさです。") {
+                    Picker("文字サイズ", selection: $textSize) {
+                        ForEach(TextSize.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.large)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("決裁者はどなたですか").font(.system(size: 15 * textSize.scale, weight: .medium))
+                        Text("02:40「最終的に決めるのはどなたになりますか」")
+                            .font(.system(size: 12 * textSize.scale)).foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityLabel("見本")
+                }
                 SettingsCard(title: "判定に使う LLM", caption: "質問を聞いたかどうかの判定に使います。文字起こしは Mac の中で行います。") {
                     ProviderPicker(settings: settings)
                     if settings.provider == .apple {

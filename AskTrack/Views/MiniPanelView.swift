@@ -42,14 +42,14 @@ struct MiniPanelView: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text("まだ聞いていない質問").font(.caption).foregroundStyle(.secondary)
-                Text("残り \(open.count) 問").font(.system(size: 30, weight: .bold))
+                Text("残り \(open.count) 問").scaledFont(30, weight: .bold)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(open) { question in
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Image(systemName: "circle").foregroundStyle(.secondary)
-                            Text(question.text).font(.system(size: 17, weight: .medium))
+                            Image(systemName: "circle").scaledFont(17).foregroundStyle(.secondary)
+                            Text(question.text).scaledFont(17, weight: .medium)
                         }
                     }
                 }
@@ -61,7 +61,7 @@ struct MiniPanelView: View {
                 } icon: {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.askGreen)
                 }
-                .font(.callout)
+                .scaledFont(13)
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.askGreen.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))

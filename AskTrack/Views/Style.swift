@@ -1,6 +1,55 @@
 import AppKit
 import SwiftUI
 
+/// 質問リスト・文字起こし・ミニウィンドウの文字サイズ（設定画面で選ぶ）
+enum TextSize: String, CaseIterable, Identifiable {
+    case standard, large, extraLarge, largest
+
+    static let storageKey = "textSize"
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .standard: "標準"
+        case .large: "大"
+        case .extraLarge: "特大"
+        case .largest: "最大"
+        }
+    }
+
+    var scale: CGFloat {
+        switch self {
+        case .standard: 1.0
+        case .large: 1.25
+        case .extraLarge: 1.5
+        case .largest: 1.8
+        }
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var textScale: CGFloat = TextSize.large.scale
+}
+
+/// 文字サイズの設定に合わせて大きさを変えるフォント
+private struct ScaledFont: ViewModifier {
+    @Environment(\.textScale) private var scale
+    let size: CGFloat
+    let weight: Font.Weight
+    let monospacedDigit: Bool
+
+    func body(content: Content) -> some View {
+        let font = Font.system(size: size * scale, weight: weight)
+        content.font(monospacedDigit ? font.monospacedDigit() : font)
+    }
+}
+
+extension View {
+    func scaledFont(_ size: CGFloat, weight: Font.Weight = .regular, monospacedDigit: Bool = false) -> some View {
+        modifier(ScaledFont(size: size, weight: weight, monospacedDigit: monospacedDigit))
+    }
+}
+
 extension Color {
     static let askGreen = Color(red: 0.118, green: 0.498, blue: 0.271)   // チェック済み・根拠
     static let askRed = Color(red: 0.706, green: 0.137, blue: 0.094)     // 録音中・停止
