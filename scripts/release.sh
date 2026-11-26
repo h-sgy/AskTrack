@@ -68,7 +68,7 @@ export ITEM="    <item>
 echo "$ITEM"
 
 if [ "${DRY_RUN:-}" = 1 ]; then
-  echo "==> DRY_RUN: 公開せずに終了（成果物: $OUT/$DMG, $OUT/$ZIP）"
+  echo "==> DRY_RUN: 公開せずに終了（成果物: ${OUT}/${DMG}, ${OUT}/${ZIP}）"
   exit 0
 fi
 
