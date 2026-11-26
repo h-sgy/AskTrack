@@ -192,7 +192,7 @@ struct AskedMatch: Decodable { let id: String; let segments: [String] }  // 5.3 
 - 署名鍵: Sparkle の `generate_keys` で EdDSA 鍵を作る。秘密鍵はローカルの Keychain に置き、CI 用には `generate_keys -x` で書き出して GitHub Secrets に入れる
 - **注意点**
   - Sparkle が新旧の比較に使うのは `CFBundleVersion`。リリースのたびに必ず増やす（`git rev-list --count HEAD` を使う）
-  - リポジトリが public なので、配布は 1 リポジトリで完結させる。zip は GitHub Releases、appcast.xml は GitHub Pages（`gh-pages` ブランチ）に置き、`SUFeedURL` は `https://h-sgy.github.io/AskTrack/appcast.xml` にする
+  - リポジトリが public なので、配布は 1 リポジトリで完結させる。dmg（最初のダウンロード用）と zip（自動更新用）は GitHub Releases、appcast.xml は GitHub Pages（`gh-pages` ブランチ）に置き、`SUFeedURL` は `https://h-sgy.github.io/AskTrack/appcast.xml` にする
   - **Sparkle が入っていない版を配ってしまうと、その版のユーザーには以後アップデートが届かない**。そのため最初の配布版から入れる
   - Sparkle は MIT ライセンスなので、著作権表示をアプリに含める（「AskTrack について」の画面に出す `Credits.rtf`）
 - Mac App Store を使わない理由: App Store なら自動アップデートは Apple がやってくれるが、審査のぶん配信が遅れ、サンドボックスの制約もある。「自分で即座にアップデートを配りたい」という要件には直接配布の方が合う
@@ -426,8 +426,9 @@ struct Session: Codable, Identifiable {
 2. `xcodebuild -exportArchive`（ExportOptions.plist の method は `developer-id`）
 3. `ditto -c -k --keepParent` で zip にし、`xcrun notarytool submit --wait` で公証する
 4. `xcrun stapler staple` でチケットを添付し、zip を作り直す
-5. Sparkle の `sign_update` で署名と長さを取得し、appcast.xml に `<item>` を追記する
-6. `gh release create v<version>` で zip をアップロードし、appcast.xml を `gh-pages` ブランチに push する
+5. 公証済みのアプリと `/Applications` へのリンクを `hdiutil create` で dmg にし、Developer ID で署名して公証・staple する。開くと「アプリケーション」フォルダへドラッグする画面になる（移さずに「ダウンロード」から起動すると、macOS が読み取り専用の仮の場所で動かすため、Sparkle が更新できない）
+6. Sparkle の `sign_update` で zip の署名と長さを取得し、appcast.xml に `<item>` を追記する（自動更新は zip のまま）
+7. `gh release create v<version>` で dmg と zip をアップロードし、appcast.xml を `gh-pages` ブランチに push する
 
 CI に移すときに GitHub Secrets へ入れるもの: Developer ID 証明書の p12（base64）とそのパスワード、App Store Connect API キー（p8、Key ID、Issuer ID）、Sparkle の EdDSA 秘密鍵。
 

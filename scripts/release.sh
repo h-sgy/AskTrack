@@ -1,5 +1,6 @@
 #!/bin/bash
 # AskTrack をビルド・公証して GitHub Releases で公開し、Sparkle の appcast を更新する。
+# 最初のダウンロード用に dmg、自動更新（Sparkle）用に zip を作る。
 #
 # 使い方: NOTARY_PROFILE=<notarytool のプロファイル名> scripts/release.sh <version>
 #         DRY_RUN=1 を付けると、公開（Release 作成・appcast 更新）の直前で止まる
@@ -21,6 +22,7 @@ git fetch -q origin
 BUILD=$(git rev-list --count HEAD)   # Sparkle は CFBundleVersion で新旧を比べるので、必ず増える値にする
 OUT=build/release/$VERSION
 ZIP=AskTrack-$VERSION.zip
+DMG=AskTrack-$VERSION.dmg
 APP=$OUT/AskTrack.app
 SPARKLE_BIN=build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin
 rm -rf "$OUT" && mkdir -p "$OUT"
@@ -42,6 +44,17 @@ xcrun stapler staple "$APP"
 spctl --assess --type execute -vv "$APP"
 ditto -c -k --keepParent "$APP" "$OUT/$ZIP"
 
+echo "==> dmg"
+# 開くと「アプリケーション」フォルダへドラッグする画面になる。移さずに起動すると自動更新できないため
+mkdir "$OUT/dmg"
+ditto "$APP" "$OUT/dmg/AskTrack.app"
+ln -s /Applications "$OUT/dmg/Applications"
+hdiutil create -quiet -volname AskTrack -srcfolder "$OUT/dmg" -format UDZO "$OUT/$DMG"
+codesign --sign "Developer ID Application" --timestamp "$OUT/$DMG"
+xcrun notarytool submit "$OUT/$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun stapler staple "$OUT/$DMG"
+spctl --assess --type open --context context:primary-signature -vv "$OUT/$DMG"
+
 echo "==> sign for Sparkle"
 SIG=$("$SPARKLE_BIN/sign_update" --account AskTrack "$OUT/$ZIP")
 export ITEM="    <item>
@@ -55,12 +68,12 @@ export ITEM="    <item>
 echo "$ITEM"
 
 if [ "${DRY_RUN:-}" = 1 ]; then
-  echo "==> DRY_RUN: 公開せずに終了（成果物: $OUT/$ZIP）"
+  echo "==> DRY_RUN: 公開せずに終了（成果物: $OUT/$DMG, $OUT/$ZIP）"
   exit 0
 fi
 
 echo "==> GitHub Release"
-gh release create "v$VERSION" "$OUT/$ZIP" --title "AskTrack $VERSION" --generate-notes
+gh release create "v$VERSION" "$OUT/$DMG" "$OUT/$ZIP" --title "AskTrack $VERSION" --generate-notes
 
 echo "==> appcast (gh-pages)"
 WT=$(mktemp -d)

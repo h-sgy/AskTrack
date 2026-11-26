@@ -11,7 +11,7 @@
 
 ## インストール
 
-[Releases](https://github.com/h-sgy/AskTrack/releases) から最新の zip をダウンロードし、展開した `AskTrack.app` を「アプリケーション」フォルダに移動します。以後のアップデートは、アプリ内で自動的に届きます。
+[Releases](https://github.com/h-sgy/AskTrack/releases) から最新の `AskTrack-<バージョン>.dmg` をダウンロードして開き、`AskTrack.app` を「アプリケーション」フォルダにドラッグします。以後のアップデートは、アプリ内で自動的に届きます（「アプリケーション」フォルダに移さずに起動すると、自動更新できません）。
 
 ## 使い方
 
